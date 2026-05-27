@@ -1,0 +1,34 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/rocky-linux/errata-frontend
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8086
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+istio:
+  enabled: true
+  hosts:
+    - errata.build.resf.org
+  gateways:
+    - istio-system/default-gateway
+
+apiBackend:
+  url: "http://apollo-server.apollo2production.svc.cluster.local:8000"
