@@ -28,7 +28,7 @@ istio:
   hosts:
     - errata.build.resf.org
   gateways:
-    - istio-system/default-gateway
+    - istio-system/base-gateway-public
 
 apiBackend:
   url: "http://apollo-server.apollo2production.svc.cluster.local:8000"

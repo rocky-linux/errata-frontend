@@ -3,6 +3,8 @@ apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: {{ .Release.Name }}
+  annotations:
+    external-dns.alpha.kubernetes.io/target: ingress.build.resf.org
 spec:
   hosts:
     {{- range .Values.istio.hosts }}
