@@ -291,7 +291,9 @@ function RecordRows({ rows }: { rows: CveRow[] }) {
             <Td>
               <Text color={`${severityColor(cvssSeverity(row))}.500`}>
                 {cvssSeverity(row)}
-                {row.cvssV3Score ? ` ${Number(row.cvssV3Score).toFixed(1)}` : ""}
+                {parseScore(row.cvssV3Score) !== null
+                  ? ` ${parseScore(row.cvssV3Score)!.toFixed(1)}`
+                  : ""}
               </Text>
             </Td>
             <Td>{row.component || "—"}</Td>
@@ -316,10 +318,11 @@ function RecordRows({ rows }: { rows: CveRow[] }) {
 }
 
 function ScoreCell({ score, band }: { score: string | null | undefined; band: string }) {
-  if (!score || band === "—") return <Text>—</Text>;
+  const value = parseScore(score);
+  if (value === null || band === "—") return <Text>—</Text>;
   return (
     <HStack spacing={2}>
-      <Text fontWeight="700">{Number(score).toFixed(1)}</Text>
+      <Text fontWeight="700">{value.toFixed(1)}</Text>
       <Badge colorScheme={severityColor(band)} variant="subtle">
         {band}
       </Badge>

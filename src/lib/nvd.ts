@@ -44,10 +44,29 @@ export function cvssScoreToSeverity(score: number | null): CvssSeverityLabel {
   return "CRITICAL";
 }
 
+/**
+ * Placeholder text that Apollo can return where a CVSS value or CWE belongs. Hydra-ingested
+ * advisories store "UNKNOWN" for missing scores, vectors and CWEs.
+ */
+const PLACEHOLDER = /^(unknown|n\/a|na|none|null|-|—)$/i;
+
+/** The stored text, or null for empty or placeholder values such as "UNKNOWN". */
+export function storedText(raw?: string | null): string | null {
+  const text = raw?.trim();
+  return text && !PLACEHOLDER.test(text) ? text : null;
+}
+
+/** A plain decimal CVSS score ("9.8"), else null. "UNKNOWN", "" and " " are not scores. */
 export function parseScore(raw?: string | null): number | null {
-  if (raw === undefined || raw === null || raw === "") return null;
+  if (raw === undefined || raw === null || !/^\s*\d+(\.\d+)?\s*$/.test(raw)) return null;
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;
+}
+
+/** A CVSS v3 vector with at least an attack-vector metric, else null. */
+export function cvssVector(raw?: string | null): string | null {
+  const text = storedText(raw);
+  return text && /(^|\/)AV:[NALP](\/|$)/.test(text) ? text : null;
 }
 
 /** "CVSS v3.0" or "CVSS v3.1" from a vector prefix; "CVSS v3" when there is none. */
@@ -136,11 +155,11 @@ export function cweDetailUrl(cweId: string): string | null {
 }
 
 export function splitCweIds(raw?: string | null): string[] {
-  if (!raw) return [];
-  return raw
+  if (!storedText(raw)) return [];
+  return (raw as string)
     .split(/[,;/]+/)
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter((s) => storedText(s) !== null);
 }
 
 export function pickPrimaryNvd(items: NvdCve[]): NvdCve | undefined {

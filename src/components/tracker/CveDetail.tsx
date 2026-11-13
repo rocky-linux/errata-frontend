@@ -35,7 +35,13 @@ import { Link as RouterLink, useParams, useSearchParams } from "react-router-dom
 import { getAdvisory } from "../../api/client";
 import { getTrackerCve, type CveContext, type CveDetail } from "../../api/tracker";
 import type { V2Advisory, V2RPMs } from "../../api/types";
-import { cvssScoreToSeverity, parseCvss3Metrics, parseScore } from "../../lib/nvd";
+import {
+  cvssScoreToSeverity,
+  cvssVector,
+  parseCvss3Metrics,
+  parseScore,
+  storedText,
+} from "../../lib/nvd";
 import { copyText } from "../../lib/copyText";
 import { safeHttpUrl } from "../../lib/safeHttpUrl";
 import { COLOR_RESF_GREEN } from "../../styles";
@@ -274,12 +280,24 @@ export function CveDetailPage() {
     );
   }
 
+  // Apollo can return placeholders such as "UNKNOWN" for these; treat them as not stored.
+  const score = parseScore(detail.cvssV3Score);
+  const vector = cvssVector(detail.cvssV3Vector);
+  const cwe = storedText(detail.cwe);
+  const exploitMaturity = storedText(detail.exploitMaturity);
+  const epss = storedText(detail.epssScore) === null ? null : Number(detail.epssScore);
   const cvss = band(detail.cvssV3Score);
   const patched = detail.contexts.filter((item) => item.status === "Patch available");
   const vendor = patched.length ? detail.severity : null;
   const sources = detail.sources;
   const cvssSource =
-    sources?.cvss === "nvd" ? "NVD" : sources?.cvss === "advisory" ? sources.advisory || "advisory" : null;
+    score === null
+      ? null
+      : sources?.cvss === "nvd"
+        ? "NVD"
+        : sources?.cvss === "advisory"
+          ? sources.advisory || "advisory"
+          : null;
   const epssSource = sources?.epss === "first" ? "FIRST" : sources?.epss === "nvd" ? "NVD" : null;
   const description = detail.description || "No description is stored for this CVE.";
   const descriptionLong = description.length > 180 || description.includes("\n");
@@ -287,10 +305,10 @@ export function CveDetailPage() {
   const statusLabel = statuses.length === 1 ? statuses[0] : "Mixed";
   const listed = detail.contexts.some((item) => item.status === "Patch available");
   const advisoryIds = [...new Set(detail.contexts.map((item) => item.advisory).filter(Boolean))] as string[];
-  const metrics = parseCvss3Metrics(detail.cvssV3Vector);
-  const vectorLabel = detail.cvssV3Vector?.includes("CVSS:3.0/")
+  const metrics = parseCvss3Metrics(vector);
+  const vectorLabel = vector?.includes("CVSS:3.0/")
     ? "CVSS v3.0 vector"
-    : detail.cvssV3Vector?.includes("CVSS:3.1/")
+    : vector?.includes("CVSS:3.1/")
       ? "CVSS v3.1 vector"
       : "CVSS v3 vector";
   const references = referenceItems(detail);
@@ -357,7 +375,7 @@ export function CveDetailPage() {
           >
             <HStack spacing={2} align="center">
               <Text fontSize="xl" fontWeight="700" lineHeight="1">
-                {detail.cvssV3Score ? Number(detail.cvssV3Score).toFixed(1) : "—"}
+                {score !== null ? score.toFixed(1) : "—"}
               </Text>
               {cvss && (
                 <Badge colorScheme={severityScheme(cvss)} fontSize="0.7rem">
@@ -378,7 +396,7 @@ export function CveDetailPage() {
             muted={muted}
           >
             <Text fontSize="xl" fontWeight="700" lineHeight="1">
-              {detail.epssScore !== null ? `${(Number(detail.epssScore) * 100).toFixed(2)}%` : "—"}
+              {epss !== null && Number.isFinite(epss) ? `${(epss * 100).toFixed(2)}%` : "—"}
             </Text>
             <Text fontSize="xs" color={muted}>
               ({epssSource || "not recorded"})
@@ -469,9 +487,9 @@ export function CveDetailPage() {
           </HStack>
           <HStack borderWidth="1px" borderColor={borderColor} borderRadius="md" px={2} py={1} bg={insetBg} align="center">
             <Text flex="1" fontFamily="mono" fontSize="xs" lineHeight="1.6">
-              {detail.cvssV3Vector ? <SlashText value={detail.cvssV3Vector} /> : "No CVSS v3 vector is stored."}
+              {vector ? <SlashText value={vector} /> : "No CVSS v3 vector is stored."}
             </Text>
-            {detail.cvssV3Vector && <CopyIconButton value={detail.cvssV3Vector} label="Copy CVSS vector" />}
+            {vector && <CopyIconButton value={vector} label="Copy CVSS vector" />}
           </HStack>
           {Object.keys(metrics).length > 0 && (
             <Box
@@ -502,17 +520,19 @@ export function CveDetailPage() {
                 <MetricInfoHint
                   id="cwe"
                   note={
-                    sources?.cwe === "nvd"
-                      ? "On this page the id is from NVD."
-                      : sources?.cwe === "advisory"
-                        ? "On this page the id is from the Rocky advisory. NVD did not record one."
-                        : "No CWE is stored for this CVE."
+                    !cwe
+                      ? "No CWE is stored for this CVE."
+                      : sources?.cwe === "nvd"
+                        ? "On this page the id is from NVD."
+                        : sources?.cwe === "advisory"
+                          ? "On this page the id is from the Rocky advisory. NVD did not record one."
+                          : "No CWE is stored for this CVE."
                   }
                 />
               </HStack>
-              {cweIds(detail.cwe).length ? (
+              {cweIds(cwe).length ? (
                 <HStack spacing={3} flexWrap="wrap">
-                  {cweIds(detail.cwe).map((id) => (
+                  {cweIds(cwe).map((id) => (
                     <Link
                       key={id}
                       href={`https://cwe.mitre.org/data/definitions/${id.replace(/\D/g, "")}.html`}
@@ -525,7 +545,7 @@ export function CveDetailPage() {
                   ))}
                 </HStack>
               ) : (
-                <Text fontWeight="600">{detail.cwe || "unavailable"}</Text>
+                <Text fontWeight="600">{cwe || "unavailable"}</Text>
               )}
             </Box>
             <Box>
@@ -536,17 +556,25 @@ export function CveDetailPage() {
                 <MetricInfoHint
                   id="exploit_maturity"
                   note={
-                    sources?.exploitMaturity === "nvd"
-                      ? "On this page the value is stored on the NVD record."
-                      : sources?.exploitMaturity === "vector"
-                        ? "On this page the value is derived from the stored CVSS vector. NVD did not store a separate exploit-maturity value."
-                        : "Not recorded for this CVE."
+                    !exploitMaturity
+                      ? "Not recorded for this CVE."
+                      : sources?.exploitMaturity === "nvd"
+                        ? "On this page the value is stored on the NVD record."
+                        : sources?.exploitMaturity === "vector"
+                          ? "On this page the value is derived from the stored CVSS vector. NVD did not store a separate exploit-maturity value."
+                          : "Not recorded for this CVE."
                   }
                 />
               </HStack>
               <Text fontWeight="600">
-                {detail.exploitMaturity || "unavailable"}
-                {sources?.exploitMaturity === "nvd" ? " (NVD)" : sources?.exploitMaturity === "vector" ? " (vector)" : ""}
+                {exploitMaturity || "unavailable"}
+                {!exploitMaturity
+                  ? ""
+                  : sources?.exploitMaturity === "nvd"
+                    ? " (NVD)"
+                    : sources?.exploitMaturity === "vector"
+                      ? " (vector)"
+                      : ""}
               </Text>
             </Box>
             <Box>

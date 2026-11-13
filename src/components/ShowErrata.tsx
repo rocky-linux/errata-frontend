@@ -33,11 +33,13 @@ import { getAdvisory } from "../api/client";
 import type { V2Advisory } from "../api/types";
 import {
   cvssScoreToSeverity,
+  cvssVector,
   nvdDetailUrl,
   parseCvss3Metrics,
   parseScore,
   pickPrimaryNvd,
   severityColor,
+  storedText,
 } from "../lib/nvd";
 import { safeHttpUrl } from "../lib/safeHttpUrl";
 import { reqap } from "../lib/reqap";
@@ -549,7 +551,7 @@ export const ShowErrata = () => {
                             parseScore(cve.cvss3BaseScore);
                           const sev = cvssScoreToSeverity(score);
                           const metrics = parseCvss3Metrics(
-                            nvd?.cvss_v3_vector || cve.cvss3ScoringVector
+                            cvssVector(nvd?.cvss_v3_vector) || cvssVector(cve.cvss3ScoringVector)
                           );
                           return (
                             <Box
@@ -581,9 +583,9 @@ export const ShowErrata = () => {
                                   <CvssBadge score={score} severity={sev} />
                                 </HStack>
                               </HStack>
-                              {(nvd?.description || cve.cwe) && (
+                              {(nvd?.description || storedText(cve.cwe)) && (
                                 <Text fontSize="sm" color={muted} mb={2}>
-                                  {nvd?.description || `CWE: ${cve.cwe}`}
+                                  {nvd?.description || `CWE: ${storedText(cve.cwe)}`}
                                 </Text>
                               )}
                               <HStack spacing={4} flexWrap="wrap" fontSize="xs" color={muted}>
