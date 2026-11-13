@@ -289,12 +289,18 @@ export function CveDetailPage() {
   const score = parseScore(detail.cvssV3Score);
   const vector = cvssVector(detail.cvssV3Vector);
   const cwe = storedText(detail.cwe);
-  // Apollo derives "Unproven" from any vector without an E: metric, including a placeholder
-  // such as "UNKNOWN"; a maturity derived from no real vector is not data.
-  const exploitMaturity =
-    detail.sources?.exploitMaturity === "vector" && !vector
-      ? null
-      : storedText(detail.exploitMaturity);
+  // "Unproven" read from no real vector is a default, not data. The vuls exporter stores it
+  // as NVD's value when NVD has no vector (then NVD supplied no CVSS data); like Apollo, read
+  // it from the stored vector instead. Apollo derives Unproven from any vector without an E:
+  // metric, including a placeholder such as "UNKNOWN".
+  const storedMaturity = storedText(detail.exploitMaturity);
+  const maturitySource =
+    detail.sources?.exploitMaturity === "nvd" &&
+    storedMaturity === "Unproven" &&
+    detail.sources?.cvss !== "nvd"
+      ? "vector"
+      : detail.sources?.exploitMaturity;
+  const exploitMaturity = maturitySource === "vector" && !vector ? null : storedMaturity;
   const epss = storedText(detail.epssScore) === null ? null : Number(detail.epssScore);
   const cvss = band(detail.cvssV3Score);
   const patched = detail.contexts.filter((item) => item.status === "Patch available");
@@ -568,9 +574,9 @@ export function CveDetailPage() {
                   note={
                     !exploitMaturity
                       ? "Not recorded for this CVE."
-                      : sources?.exploitMaturity === "nvd"
+                      : maturitySource === "nvd"
                         ? "On this page the value is stored on the NVD record."
-                        : sources?.exploitMaturity === "vector"
+                        : maturitySource === "vector"
                           ? "On this page the value is derived from the stored CVSS vector. NVD did not store a separate exploit-maturity value."
                           : "Not recorded for this CVE."
                   }
@@ -580,9 +586,9 @@ export function CveDetailPage() {
                 {exploitMaturity || "unavailable"}
                 {!exploitMaturity
                   ? ""
-                  : sources?.exploitMaturity === "nvd"
+                  : maturitySource === "nvd"
                     ? " (NVD)"
-                    : sources?.exploitMaturity === "vector"
+                    : maturitySource === "vector"
                       ? " (vector)"
                       : ""}
               </Text>

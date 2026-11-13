@@ -36,6 +36,7 @@ import {
   cvssVector,
   nvdDetailUrl,
   parseCvss3Metrics,
+  nvdExploitMaturity,
   parseScore,
   pickPrimaryNvd,
   severityColor,
@@ -599,7 +600,7 @@ export const ShowErrata = () => {
                                 <Box minW="100px">
                                   <EpssMiniBar score={nvd?.epss_score} />
                                 </Box>
-                                <ExploitMaturityBadge label={nvd?.exploit_maturity} />
+                                <ExploitMaturityBadge label={nvdExploitMaturity(nvd)} />
                               </HStack>
                             </Box>
                           );

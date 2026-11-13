@@ -162,6 +162,15 @@ export function splitCweIds(raw?: string | null): string[] {
     .filter((s) => storedText(s) !== null);
 }
 
+/**
+ * The NVD record's exploit maturity, or null when it is only a default. The vuls exporter
+ * stores Unproven when NVD has no vector to read; that is not an assessment.
+ */
+export function nvdExploitMaturity(item?: NvdCve | null): string | null {
+  const stored = storedText(item?.exploit_maturity);
+  return stored === "Unproven" && !cvssVector(item?.cvss_v3_vector) ? null : stored;
+}
+
 export function pickPrimaryNvd(items: NvdCve[]): NvdCve | undefined {
   if (!items.length) return undefined;
   return [...items].sort((a, b) => {

@@ -5,6 +5,7 @@ import {
   cvssScoreToSeverity,
   cvssV3Label,
   exploitMaturityRank,
+  nvdExploitMaturity,
   parseCvss3Metrics,
   parseScore,
   severityColor,
@@ -343,7 +344,7 @@ export function ErrataMetricsStrip({ primary }: { primary?: NvdCve }) {
         icon={<NoInteractIcon />}
         color="#f472b6"
       />
-      <ExploitMaturityChip label={primary?.exploit_maturity} />
+      <ExploitMaturityChip label={nvdExploitMaturity(primary)} />
     </HStack>
   );
 }
