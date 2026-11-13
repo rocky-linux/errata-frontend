@@ -69,7 +69,7 @@ export const METRIC_HELP: Record<MetricHelpId, MetricHelpEntry> = {
       "Fix listed in advisory means every matching record names a fixed source build. That is not an independently verified copy in a repository.",
       "In research means every matching record is still open.",
       "Not shipped means no fixed build is recorded. That does not mean the package is unaffected.",
-      "Not affected is recorded only with stored evidence, for example the component is absent from Rocky repository metadata, or Red Hat VEX marks every supported Enterprise Linux release not affected. The table shows the reason for each release.",
+      "Not affected is recorded only with stored evidence, for example the component is absent from Rocky repository metadata, or Red Hat VEX marks every supported Enterprise Linux release not affected. The table shows the stored reason for each record.",
       "Mixed means the records do not all have the same status. The table lists each one.",
     ],
   },

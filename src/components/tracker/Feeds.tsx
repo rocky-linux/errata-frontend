@@ -14,16 +14,18 @@ export function FeedsPage() {
     <Box p={4} maxW="800px">
       <Heading size="md">Data feeds and API</Heading>
       <Text mt={1} fontSize="sm">
-        Read-only feeds for the same Rocky Linux errata shown on this site. Exports use the stored
-        status values: Patch available (shown on this site as Fix listed in advisory), In research,
-        Not shipped, and Not affected. Not shipped is not the same as Not affected.
+        Read-only feeds for the same Rocky Linux errata shown on this site. CSV and JSON exports
+        carry each record's status label (Patch available, shown on this site as Fix listed in
+        advisory; In research; Not shipped; Not affected) and its code in statusCode (fixed,
+        under_investigation, not_shipped, not_affected). Not shipped is not the same as Not
+        affected.
       </Text>
       <Heading size="sm" mt={4} id="mcp">
         MCP
       </Heading>
       <Text mt={2} fontSize="sm">
-        Anonymous, read-only Streamable HTTP, limited to 100 requests per minute per client
-        address. There is no subscription or notification tool.
+        Anonymous, read-only Streamable HTTP, rate-limited to roughly 100 requests per minute
+        per client. There is no subscription or notification tool.
       </Text>
       <Text mt={2} fontFamily="mono" fontSize="sm">
         {mcpUrl}

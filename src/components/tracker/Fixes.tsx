@@ -107,10 +107,15 @@ export function FixesPage() {
 
   const csafHref = detail ? safeHttpUrl(detail.csafUrl, window.location.origin) : undefined;
 
-  async function copyLink() {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+
+  function copyLink() {
     const url = new URL(window.location.href);
     if (advisory) url.searchParams.set("advisory", advisory);
-    await copyText(url.toString());
+    copyText(url.toString())
+      .then(() => setCopyState("copied"))
+      .catch(() => setCopyState("failed"))
+      .finally(() => window.setTimeout(() => setCopyState("idle"), 1500));
   }
 
   return (
@@ -191,8 +196,12 @@ export function FixesPage() {
               <Stack spacing={4}>
                 <Text>{detail.title}</Text>
                 <HStack>
-                  <Button size="sm" onClick={() => void copyLink().catch(() => undefined)}>
-                    Copy page link
+                  <Button size="sm" onClick={copyLink}>
+                    {copyState === "copied"
+                      ? "Copied"
+                      : copyState === "failed"
+                        ? "Copy failed"
+                        : "Copy page link"}
                   </Button>
                   <Button
                     as={RouterLink}

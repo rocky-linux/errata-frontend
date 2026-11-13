@@ -174,7 +174,7 @@ function aggregateLook(status: string): { label: string; tone: "fixed" | "mixed"
       label: "Not affected",
       tone: "open",
       detail:
-        "Every matching record is stored as not affected. Expand the row to see the reason for each release.",
+        "Every matching record is stored as not affected. Expand the row to see the stored reason for each record.",
     };
   }
   return {
