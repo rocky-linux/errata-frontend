@@ -17,18 +17,19 @@ import { COLOR_RESF_BLUE, COLOR_RESF_GREEN } from "../styles";
 import { getRSSUrl } from "../api/client";
 import { RESFLogo } from "./RESFLogo";
 import { Overview } from "./Overview";
+import { loadPage, PageErrorBoundary } from "./PageErrorBoundary";
 
 // Everything but the advisory list loads on demand, so the landing page doesn't download the
 // tracker and NVD views.
-const ShowErrata = lazy(() => import("./ShowErrata").then((m) => ({ default: m.ShowErrata })));
-const CveDetailPage = lazy(() =>
-  import("./tracker/CveDetail").then((m) => ({ default: m.CveDetailPage }))
+const ShowErrata = lazy(loadPage(() => import("./ShowErrata").then((m) => m.ShowErrata)));
+const CveDetailPage = lazy(
+  loadPage(() => import("./tracker/CveDetail").then((m) => m.CveDetailPage))
 );
-const CveList = lazy(() => import("./tracker/CveList").then((m) => ({ default: m.CveList })));
-const FeedsPage = lazy(() => import("./tracker/Feeds").then((m) => ({ default: m.FeedsPage })));
-const FixesPage = lazy(() => import("./tracker/Fixes").then((m) => ({ default: m.FixesPage })));
-const TechnologiesPage = lazy(() =>
-  import("./tracker/Technologies").then((m) => ({ default: m.TechnologiesPage }))
+const CveList = lazy(loadPage(() => import("./tracker/CveList").then((m) => m.CveList)));
+const FeedsPage = lazy(loadPage(() => import("./tracker/Feeds").then((m) => m.FeedsPage)));
+const FixesPage = lazy(loadPage(() => import("./tracker/Fixes").then((m) => m.FixesPage)));
+const TechnologiesPage = lazy(
+  loadPage(() => import("./tracker/Technologies").then((m) => m.TechnologiesPage))
 );
 
 function SearchRedirect() {
@@ -208,21 +209,24 @@ export const Root = () => {
         </SectionLink>
       </HStack>
       <Box as="main" flexGrow={1} overflow="auto" background={bodyBg}>
-        <Suspense fallback={<Spinner m={6} color={COLOR_RESF_GREEN} />}>
-          <Routes>
-            <Route path="/" element={<Overview />} />
-            <Route path="/advisories" element={<AdvisoriesRedirect />} />
-            <Route path="/cves" element={<CveList />} />
-            <Route path="/cves/:cveId" element={<CveDetailPage />} />
-            <Route path="/fixes" element={<FixesPage />} />
-            <Route path="/packages" element={<TechnologiesPage />} />
-            <Route path="/feeds" element={<FeedsPage />} />
-            <Route path="/about" element={<Navigate to="/" replace />} />
-            <Route path="/search" element={<SearchRedirect />} />
-            <Route path="/technologies" element={<Navigate to="/packages" replace />} />
-            <Route path="/:id" element={<ShowErrata />} />
-          </Routes>
-        </Suspense>
+        {/* Keyed by path so moving to another page clears a previous failure. */}
+        <PageErrorBoundary key={pathname}>
+          <Suspense fallback={<Spinner m={6} color={COLOR_RESF_GREEN} />}>
+            <Routes>
+              <Route path="/" element={<Overview />} />
+              <Route path="/advisories" element={<AdvisoriesRedirect />} />
+              <Route path="/cves" element={<CveList />} />
+              <Route path="/cves/:cveId" element={<CveDetailPage />} />
+              <Route path="/fixes" element={<FixesPage />} />
+              <Route path="/packages" element={<TechnologiesPage />} />
+              <Route path="/feeds" element={<FeedsPage />} />
+              <Route path="/about" element={<Navigate to="/" replace />} />
+              <Route path="/search" element={<SearchRedirect />} />
+              <Route path="/technologies" element={<Navigate to="/packages" replace />} />
+              <Route path="/:id" element={<ShowErrata />} />
+            </Routes>
+          </Suspense>
+        </PageErrorBoundary>
       </Box>
       <Box
         as="footer"
