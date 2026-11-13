@@ -28,6 +28,7 @@ export interface V2CVE {
 
 export interface V2RPMs {
   nvras: string[];
+  repositories?: string[];
 }
 
 export interface V2Source {
@@ -41,6 +42,7 @@ export interface V2Source {
 export interface V2Advisory {
   id?: number;
   publishedAt?: string;
+  rockyPublishedAt?: string | null;
   name?: string;
   synopsis?: string;
   description?: string;
@@ -55,6 +57,7 @@ export interface V2Advisory {
   references?: string[];
   rpms?: Record<string, V2RPMs>;
   rebootSuggested?: boolean;
+  restartSuggested?: boolean;
   buildReferences?: string[];
   source?: V2Source | null;
 }

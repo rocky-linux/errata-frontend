@@ -34,8 +34,8 @@ import {
   Tr,
   useColorModeValue,
 } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 
 import { listAdvisories } from "../api/client";
 import type {
@@ -47,8 +47,50 @@ import { AdvisoryTypeEnum, AdvisorySeverityEnum } from "../api/types";
 import { reqap } from "../lib/reqap";
 import { COLOR_RESF_GREEN } from "../styles";
 import { severityToBadge, severityToText, typeToText } from "./enumToText";
+import { ADVISORY_ID, CVE_ID } from "./tracker/searchRoute";
+
+const RELEASES = ["Rocky Linux 8", "Rocky Linux 9", "Rocky Linux 10"];
+
+function paramDate(value: string | null, endOfDay: boolean): Date | undefined {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  const [year, month, date] = value.split("-").map(Number);
+  return endOfDay ? new Date(year, month - 1, date, 23, 59, 59) : new Date(year, month - 1, date);
+}
+
+const PAGE_SIZES = [10, 25, 50, 100];
+const DEFAULT_PAGE_SIZE = 25;
+
+function paramDay(value: Date): string {
+  return value.toLocaleDateString("en-ca");
+}
+
+/** Filter state as encoded in the advisory list URL. Unknown values are dropped. */
+function filtersFromParams(params: URLSearchParams) {
+  const type = params.get("type");
+  const severity = params.get("severity");
+  const product = params.get("product");
+  const page = Number(params.get("page"));
+  const limit = Number(params.get("limit"));
+  return {
+    keyword: params.get("q") || undefined,
+    before: paramDate(params.get("before"), true),
+    after: paramDate(params.get("after"), false),
+    product: product && RELEASES.includes(product) ? product : "",
+    type:
+      type && type in AdvisoryTypeEnum ? (type as AdvisoryTypeFilterKey) : undefined,
+    // The severity filter only exists for security advisories (its select is hidden otherwise).
+    severity:
+      type === "Security" && severity && severity in AdvisorySeverityEnum
+        ? (severity as AdvisorySeverityFilterKey)
+        : undefined,
+    page: Number.isInteger(page) && page > 1 ? page - 1 : 0,
+    pageSize: PAGE_SIZES.includes(limit) ? limit : DEFAULT_PAGE_SIZE,
+  };
+}
 
 export const Overview = () => {
+  const [params, setParams] = useSearchParams();
+  const initial = filtersFromParams(params);
   const inputBackground = useColorModeValue("white", undefined);
   const tableBg = useColorModeValue("white", "gray.800");
   const pagerButtonScheme = useColorModeValue("blackAlpha", "gray");
@@ -61,17 +103,79 @@ export const Overview = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
 
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(25);
-  const [filtersKeyword, setFiltersKeyword] = useState<string>();
-  const [filterBefore, setFilterBefore] = useState<Date>();
-  const [filterAfter, setFilterAfter] = useState<Date>();
-  const [filterProduct, setFilterProduct] = useState<string>("");
-  const [filtersType, setFiltersType] = useState<AdvisoryTypeFilterKey>();
-  const [filtersSeverity, setFiltersSeverity] =
-    useState<AdvisorySeverityFilterKey>();
+  const [page, setPage] = useState(initial.page);
+  const [pageSize, setPageSize] = useState(initial.pageSize);
+  const [filtersKeyword, setFiltersKeyword] = useState<string | undefined>(
+    initial.keyword
+  );
+  const [filterBefore, setFilterBefore] = useState<Date | undefined>(initial.before);
+  const [filterAfter, setFilterAfter] = useState<Date | undefined>(initial.after);
+  const [filterProduct, setFilterProduct] = useState<string>(initial.product);
+  const [filtersType, setFiltersType] = useState<AdvisoryTypeFilterKey | undefined>(
+    initial.type
+  );
+  const [filtersSeverity, setFiltersSeverity] = useState<
+    AdvisorySeverityFilterKey | undefined
+  >(initial.severity);
+
+  // The query string this component last wrote, so a change from elsewhere (a link to
+  // /?q=..., back/forward) can be told apart from our own writes.
+  const writtenSearch = useRef(params.toString());
 
   useEffect(() => {
+    const search = params.toString();
+    if (search === writtenSearch.current) return;
+    writtenSearch.current = search;
+    const next = filtersFromParams(params);
+    setFiltersKeyword(next.keyword);
+    setFilterBefore(next.before);
+    setFilterAfter(next.after);
+    setFilterProduct(next.product);
+    setFiltersType(next.type);
+    setFiltersSeverity(next.severity);
+    setPage(next.page);
+    setPageSize(next.pageSize);
+  }, [params]);
+
+  // Mirror the filters into the URL so a reload or a shared link keeps them. Debounced:
+  // browsers throttle history.replaceState (Safari throws past ~100 calls), and the keyword
+  // box changes on every keystroke.
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (filtersKeyword) next.set("q", filtersKeyword);
+    if (filtersType) next.set("type", filtersType);
+    if (filtersSeverity) next.set("severity", filtersSeverity);
+    if (filterProduct) next.set("product", filterProduct);
+    if (filterAfter) next.set("after", paramDay(filterAfter));
+    if (filterBefore) next.set("before", paramDay(filterBefore));
+    if (page > 0) next.set("page", String(page + 1));
+    if (pageSize !== DEFAULT_PAGE_SIZE) next.set("limit", String(pageSize));
+    const timer = window.setTimeout(() => {
+      const search = next.toString();
+      if (search === writtenSearch.current) return;
+      try {
+        setParams(next, { replace: true });
+        // Only after a successful write, so a throttled write is retried, not skipped.
+        writtenSearch.current = search;
+      } catch {
+        // Throttled by the browser; the next filter change writes the URL again.
+      }
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [
+    filtersKeyword,
+    filtersType,
+    filtersSeverity,
+    filterProduct,
+    filterAfter,
+    filterBefore,
+    page,
+    pageSize,
+    setParams,
+  ]);
+
+  useEffect(() => {
+    document.title = "Rocky Linux Errata";
     const fetchData = async () => {
       setIsLoading(true);
       const [err, res] = await reqap(() =>
@@ -102,6 +206,10 @@ export const Overview = () => {
       setAdvisories(res.advisories);
       setLastUpdated(res.lastUpdated);
       setTotal(res.total ?? 0);
+      // A page past the end (a stale link) comes back with total 0 from the V2 API, so go
+      // back to the first page instead of showing an empty list.
+      const pages = Math.max(1, Math.ceil((res.total ?? 0) / pageSize));
+      if (page > pages - 1) setPage(pages - 1);
     };
 
     const timer = setTimeout(() => fetchData(), 500);
@@ -154,13 +262,17 @@ export const Overview = () => {
           <Input
             type="search"
             aria-label="Keyword search"
-            placeholder="Keyword Search"
+            placeholder="Search advisory, CVE, or package..."
             flexGrow={1}
             width="200px"
             variant="filled"
             borderRadius="0"
             backgroundColor={inputBackground}
-            onChange={(e) => setFiltersKeyword(e.target.value)}
+            value={filtersKeyword ?? ""}
+            onChange={(e) => {
+              setPage(0);
+              setFiltersKeyword(e.target.value || undefined);
+            }}
           />
         </InputGroup>
         <HStack>
@@ -178,6 +290,7 @@ export const Overview = () => {
                 if (val !== "Security") {
                   setFiltersSeverity(undefined);
                 }
+                setPage(0);
                 setFiltersType(val || undefined);
               }}
             >
@@ -198,12 +311,13 @@ export const Overview = () => {
                 background={inputBackground}
                 borderRadius="0"
                 value={filtersSeverity ?? ""}
-                onChange={(e) =>
+                onChange={(e) => {
+                  setPage(0);
                   setFiltersSeverity(
                     (e.currentTarget.value as AdvisorySeverityFilterKey) ||
                       undefined
-                  )
-                }
+                  );
+                }}
               >
                 {severityFilterKeys.map((s) => (
                   <option key={s} value={s}>
@@ -222,10 +336,12 @@ export const Overview = () => {
               background={inputBackground}
               borderRadius="0"
               value={filterProduct}
-              onChange={(e) => setFilterProduct(e.currentTarget.value)}
+              onChange={(e) => {
+                setPage(0);
+                setFilterProduct(e.currentTarget.value);
+              }}
             >
-              {["Rocky Linux 8", "Rocky Linux 9", "Rocky Linux 10"].map(
-                (s) => (
+              {RELEASES.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
@@ -249,6 +365,7 @@ export const Overview = () => {
               }
               value={filterAfter?.toLocaleDateString("en-ca") || ""}
               onChange={(e) => {
+                setPage(0);
                 const newVal = e.currentTarget.value;
                 if (!newVal) {
                   setFilterAfter(undefined);
@@ -272,6 +389,7 @@ export const Overview = () => {
               max={new Date().toLocaleDateString("en-ca")}
               value={filterBefore?.toLocaleDateString("en-ca") || ""}
               onChange={(e) => {
+                setPage(0);
                 const newVal = e.currentTarget.value;
                 if (!newVal) {
                   setFilterBefore(undefined);
@@ -286,6 +404,43 @@ export const Overview = () => {
           </FormControl>
         </HStack>
       </Stack>
+      {filtersKeyword?.trim() && (
+        <Text fontSize="sm" mt={2}>
+          <Link
+            as={RouterLink}
+            color={linkBlue}
+            to={
+              CVE_ID.test(filtersKeyword.trim())
+                ? `/cves/${filtersKeyword.trim().toUpperCase()}`
+                : `/cves?q=${encodeURIComponent(filtersKeyword.trim())}`
+            }
+          >
+            {CVE_ID.test(filtersKeyword.trim())
+              ? `Open ${filtersKeyword.trim().toUpperCase()}`
+              : "CVEs"}
+          </Link>
+          {" · "}
+          <Link
+            as={RouterLink}
+            color={linkBlue}
+            to={`/packages?q=${encodeURIComponent(filtersKeyword.trim())}`}
+          >
+            Packages
+          </Link>
+          {ADVISORY_ID.test(filtersKeyword.trim()) && (
+            <>
+              {" · "}
+              <Link
+                as={RouterLink}
+                color={linkBlue}
+                to={`/${filtersKeyword.trim().toUpperCase()}`}
+              >
+                Open {filtersKeyword.trim().toUpperCase()}
+              </Link>
+            </>
+          )}
+        </Text>
+      )}
       <HStack my={4} justifyContent="space-between" flexWrap="wrap">
         <Text fontStyle="italic" fontSize="xs">
           Last updated{" "}
@@ -397,10 +552,17 @@ export const Overview = () => {
                       </Link>
                     </Td>
                     <Td>
-                      {a.synopsis?.replace(
-                        /^(Critical|Important|Moderate|Low): /,
-                        ""
-                      )}
+                      <Link
+                        as={RouterLink}
+                        to={`/${a.name}`}
+                        color={linkBlue}
+                        _visited={{ color: linkPurple }}
+                      >
+                        {a.synopsis?.replace(
+                          /^(Critical|Important|Moderate|Low): /,
+                          ""
+                        )}
+                      </Link>
                     </Td>
                     <Td>
                       {typeToText(a.type)}
@@ -442,7 +604,7 @@ export const Overview = () => {
             setPageSize(Number(e.currentTarget.value));
           }}
         >
-          {[10, 25, 50, 100].map((count) => (
+          {PAGE_SIZES.map((count) => (
             <option key={count} value={count}>
               {count.toLocaleString()}
             </option>
