@@ -78,8 +78,9 @@ function filtersFromParams(params: URLSearchParams) {
     product: product && RELEASES.includes(product) ? product : "",
     type:
       type && type in AdvisoryTypeEnum ? (type as AdvisoryTypeFilterKey) : undefined,
+    // The severity filter only exists for security advisories (its select is hidden otherwise).
     severity:
-      severity && severity in AdvisorySeverityEnum
+      type === "Security" && severity && severity in AdvisorySeverityEnum
         ? (severity as AdvisorySeverityFilterKey)
         : undefined,
     page: Number.isInteger(page) && page > 1 ? page - 1 : 0,
@@ -136,7 +137,9 @@ export const Overview = () => {
     setPageSize(next.pageSize);
   }, [params]);
 
-  // Mirror the filters into the URL so a reload or a shared link keeps them.
+  // Mirror the filters into the URL so a reload or a shared link keeps them. Debounced:
+  // browsers throttle history.replaceState (Safari throws past ~100 calls), and the keyword
+  // box changes on every keystroke.
   useEffect(() => {
     const next = new URLSearchParams();
     if (filtersKeyword) next.set("q", filtersKeyword);
@@ -147,10 +150,17 @@ export const Overview = () => {
     if (filterBefore) next.set("before", paramDay(filterBefore));
     if (page > 0) next.set("page", String(page + 1));
     if (pageSize !== DEFAULT_PAGE_SIZE) next.set("limit", String(pageSize));
-    const search = next.toString();
-    if (search === writtenSearch.current) return;
-    writtenSearch.current = search;
-    setParams(next, { replace: true });
+    const timer = window.setTimeout(() => {
+      const search = next.toString();
+      if (search === writtenSearch.current) return;
+      writtenSearch.current = search;
+      try {
+        setParams(next, { replace: true });
+      } catch {
+        // Throttled by the browser; the next filter change writes the URL again.
+      }
+    }, 300);
+    return () => window.clearTimeout(timer);
   }, [
     filtersKeyword,
     filtersType,
@@ -195,6 +205,10 @@ export const Overview = () => {
       setAdvisories(res.advisories);
       setLastUpdated(res.lastUpdated);
       setTotal(res.total ?? 0);
+      // A page past the end (a stale link) comes back with total 0 from the V2 API, so go
+      // back to the first page instead of showing an empty list.
+      const pages = Math.max(1, Math.ceil((res.total ?? 0) / pageSize));
+      if (page > pages - 1) setPage(pages - 1);
     };
 
     const timer = setTimeout(() => fetchData(), 500);
@@ -275,6 +289,7 @@ export const Overview = () => {
                 if (val !== "Security") {
                   setFiltersSeverity(undefined);
                 }
+                setPage(0);
                 setFiltersType(val || undefined);
               }}
             >
@@ -295,12 +310,13 @@ export const Overview = () => {
                 background={inputBackground}
                 borderRadius="0"
                 value={filtersSeverity ?? ""}
-                onChange={(e) =>
+                onChange={(e) => {
+                  setPage(0);
                   setFiltersSeverity(
                     (e.currentTarget.value as AdvisorySeverityFilterKey) ||
                       undefined
-                  )
-                }
+                  );
+                }}
               >
                 {severityFilterKeys.map((s) => (
                   <option key={s} value={s}>
@@ -319,7 +335,10 @@ export const Overview = () => {
               background={inputBackground}
               borderRadius="0"
               value={filterProduct}
-              onChange={(e) => setFilterProduct(e.currentTarget.value)}
+              onChange={(e) => {
+                setPage(0);
+                setFilterProduct(e.currentTarget.value);
+              }}
             >
               {RELEASES.map((s) => (
                   <option key={s} value={s}>
@@ -345,6 +364,7 @@ export const Overview = () => {
               }
               value={filterAfter?.toLocaleDateString("en-ca") || ""}
               onChange={(e) => {
+                setPage(0);
                 const newVal = e.currentTarget.value;
                 if (!newVal) {
                   setFilterAfter(undefined);
@@ -368,6 +388,7 @@ export const Overview = () => {
               max={new Date().toLocaleDateString("en-ca")}
               value={filterBefore?.toLocaleDateString("en-ca") || ""}
               onChange={(e) => {
+                setPage(0);
                 const newVal = e.currentTarget.value;
                 if (!newVal) {
                   setFilterBefore(undefined);
