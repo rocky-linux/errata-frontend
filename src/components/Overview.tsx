@@ -34,7 +34,7 @@ import {
   Tr,
   useColorModeValue,
 } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 
 import { listAdvisories } from "../api/client";
@@ -57,11 +57,39 @@ function paramDate(value: string | null, endOfDay: boolean): Date | undefined {
   return endOfDay ? new Date(year, month - 1, date, 23, 59, 59) : new Date(year, month - 1, date);
 }
 
+const PAGE_SIZES = [10, 25, 50, 100];
+const DEFAULT_PAGE_SIZE = 25;
+
+function paramDay(value: Date): string {
+  return value.toLocaleDateString("en-ca");
+}
+
+/** Filter state as encoded in the advisory list URL. Unknown values are dropped. */
+function filtersFromParams(params: URLSearchParams) {
+  const type = params.get("type");
+  const severity = params.get("severity");
+  const product = params.get("product");
+  const page = Number(params.get("page"));
+  const limit = Number(params.get("limit"));
+  return {
+    keyword: params.get("q") || undefined,
+    before: paramDate(params.get("before"), true),
+    after: paramDate(params.get("after"), false),
+    product: product && RELEASES.includes(product) ? product : "",
+    type:
+      type && type in AdvisoryTypeEnum ? (type as AdvisoryTypeFilterKey) : undefined,
+    severity:
+      severity && severity in AdvisorySeverityEnum
+        ? (severity as AdvisorySeverityFilterKey)
+        : undefined,
+    page: Number.isInteger(page) && page > 1 ? page - 1 : 0,
+    pageSize: PAGE_SIZES.includes(limit) ? limit : DEFAULT_PAGE_SIZE,
+  };
+}
+
 export const Overview = () => {
-  const [params] = useSearchParams();
-  const initialType = params.get("type");
-  const initialSeverity = params.get("severity");
-  const initialProduct = params.get("product");
+  const [params, setParams] = useSearchParams();
+  const initial = filtersFromParams(params);
   const inputBackground = useColorModeValue("white", undefined);
   const tableBg = useColorModeValue("white", "gray.800");
   const pagerButtonScheme = useColorModeValue("blackAlpha", "gray");
@@ -74,32 +102,66 @@ export const Overview = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
 
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(25);
+  const [page, setPage] = useState(initial.page);
+  const [pageSize, setPageSize] = useState(initial.pageSize);
   const [filtersKeyword, setFiltersKeyword] = useState<string | undefined>(
-    params.get("q") || undefined
+    initial.keyword
   );
-  const [filterBefore, setFilterBefore] = useState<Date | undefined>(() =>
-    paramDate(params.get("before"), true)
-  );
-  const [filterAfter, setFilterAfter] = useState<Date | undefined>(() =>
-    paramDate(params.get("after"), false)
-  );
-  const [filterProduct, setFilterProduct] = useState<string>(
-    initialProduct && RELEASES.includes(initialProduct) ? initialProduct : ""
-  );
+  const [filterBefore, setFilterBefore] = useState<Date | undefined>(initial.before);
+  const [filterAfter, setFilterAfter] = useState<Date | undefined>(initial.after);
+  const [filterProduct, setFilterProduct] = useState<string>(initial.product);
   const [filtersType, setFiltersType] = useState<AdvisoryTypeFilterKey | undefined>(
-    initialType && initialType in AdvisoryTypeEnum
-      ? (initialType as AdvisoryTypeFilterKey)
-      : undefined
+    initial.type
   );
   const [filtersSeverity, setFiltersSeverity] = useState<
     AdvisorySeverityFilterKey | undefined
-  >(
-    initialSeverity && initialSeverity in AdvisorySeverityEnum
-      ? (initialSeverity as AdvisorySeverityFilterKey)
-      : undefined
-  );
+  >(initial.severity);
+
+  // The query string this component last wrote, so a change from elsewhere (a link to
+  // /?q=..., back/forward) can be told apart from our own writes.
+  const writtenSearch = useRef(params.toString());
+
+  useEffect(() => {
+    const search = params.toString();
+    if (search === writtenSearch.current) return;
+    writtenSearch.current = search;
+    const next = filtersFromParams(params);
+    setFiltersKeyword(next.keyword);
+    setFilterBefore(next.before);
+    setFilterAfter(next.after);
+    setFilterProduct(next.product);
+    setFiltersType(next.type);
+    setFiltersSeverity(next.severity);
+    setPage(next.page);
+    setPageSize(next.pageSize);
+  }, [params]);
+
+  // Mirror the filters into the URL so a reload or a shared link keeps them.
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (filtersKeyword) next.set("q", filtersKeyword);
+    if (filtersType) next.set("type", filtersType);
+    if (filtersSeverity) next.set("severity", filtersSeverity);
+    if (filterProduct) next.set("product", filterProduct);
+    if (filterAfter) next.set("after", paramDay(filterAfter));
+    if (filterBefore) next.set("before", paramDay(filterBefore));
+    if (page > 0) next.set("page", String(page + 1));
+    if (pageSize !== DEFAULT_PAGE_SIZE) next.set("limit", String(pageSize));
+    const search = next.toString();
+    if (search === writtenSearch.current) return;
+    writtenSearch.current = search;
+    setParams(next, { replace: true });
+  }, [
+    filtersKeyword,
+    filtersType,
+    filtersSeverity,
+    filterProduct,
+    filterAfter,
+    filterBefore,
+    page,
+    pageSize,
+    setParams,
+  ]);
 
   useEffect(() => {
     document.title = "Rocky Linux Errata";
@@ -520,7 +582,7 @@ export const Overview = () => {
             setPageSize(Number(e.currentTarget.value));
           }}
         >
-          {[10, 25, 50, 100].map((count) => (
+          {PAGE_SIZES.map((count) => (
             <option key={count} value={count}>
               {count.toLocaleString()}
             </option>
