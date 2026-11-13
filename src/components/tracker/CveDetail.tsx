@@ -40,7 +40,7 @@ import { safeHttpUrl } from "../../lib/safeHttpUrl";
 import { COLOR_RESF_GREEN } from "../../styles";
 import { MetricInfoHint } from "../MetricInfoHint";
 import { ErrataTitleShield } from "../VulnBadges";
-import { fixStatusLabel } from "./Filters";
+import { fixStatusLabel, justificationText, notAffectedEvidence } from "./Filters";
 
 interface ParsedRpm {
   nevra: string;
@@ -736,8 +736,8 @@ function RemediationRow({
         <Td borderColor={borderColor} color={patched ? COLOR_RESF_GREEN : muted}>
           {fixStatusLabel(item.status)}
           {item.status === "Not affected" && item.justification ? (
-            <Text fontSize="xs" color={muted}>
-              {item.justification}
+            <Text fontSize="xs" color={muted} title={`Justification: ${item.justification}`}>
+              {justificationText(item.justification)}
             </Text>
           ) : null}
         </Td>
@@ -864,9 +864,11 @@ function PackageDetails({
             <Text>not performed</Text>
             <Text color={muted}>Evidence</Text>
             <Text>
-              {item.advisory
-                ? `Rocky Linux advisory ${item.advisory} identifies this source package and fixed build. Independent repository availability verification has not been performed.`
-                : "No Rocky advisory names a fixed source package for this release."}
+              {item.status === "Not affected"
+                ? notAffectedEvidence(item).text
+                : item.advisory
+                  ? `Rocky Linux advisory ${item.advisory} identifies this source package and fixed build. Independent repository availability verification has not been performed.`
+                  : "No Rocky advisory names a fixed source package for this release."}
             </Text>
           </Grid>
         </Box>

@@ -51,7 +51,7 @@ import {
 } from "../../api/tracker";
 import { cvssScoreToSeverity, parseScore } from "../../lib/nvd";
 import { COLOR_RESF_GREEN } from "../../styles";
-import { fixStatusLabel, severityColor } from "./Filters";
+import { fixStatusLabel, notAffectedEvidence, severityColor } from "./Filters";
 import { useDebouncedQuery, useTrackerParams } from "./params";
 
 const GROUP_SORTS = new Set(["cve", "severity", "cvss", "status", "published", "product"]);
@@ -109,11 +109,7 @@ function fixedEvr(row: CveRow): string {
 
 function recordEvidence(row: CveRow): { text: string; title: string } {
   if (row.status === "Not affected") {
-    const justification = row.justification || "component_not_present";
-    return {
-      text: row.reason || "Rocky Linux does not ship this component.",
-      title: `Justification: ${justification}. The component is absent from Rocky repository metadata, and no Rocky or Red Hat advisory lists this CVE.`,
-    };
+    return notAffectedEvidence(row);
   }
   if (row.advisory) {
     return {
@@ -178,7 +174,7 @@ function aggregateLook(status: string): { label: string; tone: "fixed" | "mixed"
       label: "Not affected",
       tone: "open",
       detail:
-        "Rocky repository metadata does not contain the vulnerable component, and no Rocky or Red Hat advisory lists this CVE.",
+        "Every matching record is stored as not affected. Expand the row to see the reason for each release.",
     };
   }
   return {
@@ -782,7 +778,7 @@ export function CveList() {
             label={
               grouped
                 ? "One row per CVE. Select Fix listed, or the expand control, to show the matching package and advisory records. Fix listed means all matching records have a fixed build listed in a Rocky Linux advisory. Repository availability has not been independently verified. Mixed means the records do not all agree. Under investigation is still open. No matching Rocky build is not a not-affected result."
-                : "One row per CVE, source package, and Rocky Linux release. Fix listed in advisory names a fixed build. Repository availability has not been independently verified. Not shipped does not mean the package is unaffected. Not affected is recorded only when repository metadata shows the component is absent."
+                : "One row per CVE, source package, and Rocky Linux release. Fix listed in advisory names a fixed build. Repository availability has not been independently verified. Not shipped does not mean the package is unaffected. Not affected is recorded only with stored evidence, such as the component being absent from Rocky repository metadata or a Red Hat VEX statement; hover a row's evidence for its reason."
             }
           >
             <InfoOutlineIcon tabIndex={0} color={muted} aria-label="About this view" />

@@ -51,6 +51,39 @@ export function fixStatusLabel(status: string): string {
   return STATUSES.find((item) => item.value === status)?.label ?? status;
 }
 
+/** Plain-language CSAF VEX justifications, as stored on not_affected rows. */
+const JUSTIFICATIONS: Record<string, string> = {
+  component_not_present: "The vulnerable component is not present.",
+  vulnerable_code_not_present: "The vulnerable code is not present.",
+  vulnerable_code_cannot_be_controlled_by_adversary:
+    "An attacker cannot control the vulnerable code.",
+  vulnerable_code_not_in_execute_path: "The vulnerable code is not in the execution path.",
+  inline_mitigations_already_exist: "Built-in mitigations already exist.",
+};
+
+export function justificationText(justification?: string | null): string | null {
+  if (!justification) return null;
+  return JUSTIFICATIONS[justification] ?? justification.replace(/_/g, " ");
+}
+
+/**
+ * Why a record is Not affected, from what Apollo stored on it. Apollo records the status for
+ * more than one reason (the component is absent from Rocky repository metadata, or Red Hat
+ * VEX marks every active Enterprise Linux major not affected), so the text must not assume one.
+ */
+export function notAffectedEvidence(row: {
+  reason?: string | null;
+  justification?: string | null;
+}): { text: string; title: string } {
+  const justification = justificationText(row.justification);
+  const text = row.reason || justification || "Recorded as not affected.";
+  const parts = [
+    row.justification ? `Justification: ${row.justification}.` : null,
+    row.reason && justification ? justification : null,
+  ].filter(Boolean);
+  return { text, title: parts.length ? parts.join(" ") : text };
+}
+
 export function TrackerFilters({
   products,
   exportPath,
