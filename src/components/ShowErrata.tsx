@@ -42,7 +42,7 @@ import {
 import { safeHttpUrl } from "../lib/safeHttpUrl";
 import { reqap } from "../lib/reqap";
 import { COLOR_RESF_GREEN } from "../styles";
-import { typeToText } from "./enumToText";
+import { severityToText, typeToText } from "./enumToText";
 import {
   VulnerabilityDetails,
   useNvdCves,
@@ -140,6 +140,22 @@ function referenceLabel(ticket: string, sourceLink: string, sourceBy: string): s
     return `Red Hat issue ${ticket}`;
   }
   return [sourceBy, ticket].filter(Boolean).join(" ");
+}
+
+/** Badge colour for the advisory's own severity rating. */
+function advisorySeverityScheme(severity?: V2Advisory["severity"]): string {
+  switch (severity) {
+    case "SEVERITY_CRITICAL":
+      return "red";
+    case "SEVERITY_IMPORTANT":
+      return "orange";
+    case "SEVERITY_MODERATE":
+      return "yellow";
+    case "SEVERITY_LOW":
+      return "green";
+    default:
+      return "gray";
+  }
 }
 
 function SideRow({
@@ -323,7 +339,15 @@ export const ShowErrata = () => {
                   </Text>
                   <HStack mt={2} spacing={2} flexWrap="wrap">
                     {errata.type === "TYPE_SECURITY" && (
-                      <Badge colorScheme="red">SECURITY UPDATE</Badge>
+                      <>
+                        <Badge colorScheme="red">SECURITY UPDATE</Badge>
+                        <Badge
+                          colorScheme={advisorySeverityScheme(errata.severity)}
+                          title="Severity assigned by this advisory"
+                        >
+                          {severityToText(errata.severity).toUpperCase()}
+                        </Badge>
+                      </>
                     )}
                     {errata.type !== "TYPE_SECURITY" && (
                       <Badge
@@ -368,10 +392,17 @@ export const ShowErrata = () => {
 
               {cveNames.length > 0 && (
                 <Box mt={4} pt={4} borderTopWidth="1px" borderColor={borderColor}>
-                  {primary && cveNames.length > 1 && (
+                  {primary && (
                     <Text fontSize="xs" color={muted} mb={2}>
-                      NVD scores for {primary.cve_id}. Other CVEs on this advisory are listed
-                      under Vulnerabilities.
+                      NVD scores for {primary.cve_id}
+                      {cveNames.length > 1
+                        ? ", the highest-scored CVE on this advisory. The others are listed under Vulnerabilities"
+                        : ""}
+                      . The CVSS band is not the advisory severity
+                      {errata.type === "TYPE_SECURITY"
+                        ? ` (${severityToText(errata.severity)})`
+                        : ""}
+                      .
                     </Text>
                   )}
                   <ErrataMetricsStrip primary={primary} />
@@ -844,6 +875,13 @@ export const ShowErrata = () => {
                           {typeToText(errata.type).toUpperCase()}
                         </Badge>
                       </SideRow>
+                      {errata.type === "TYPE_SECURITY" && (
+                        <SideRow label="Severity">
+                          <Badge colorScheme={advisorySeverityScheme(errata.severity)}>
+                            {severityToText(errata.severity).toUpperCase()}
+                          </Badge>
+                        </SideRow>
+                      )}
                       <SideRow label="Release">
                         {(errata.affectedProducts ?? []).join(", ") || "—"}
                       </SideRow>

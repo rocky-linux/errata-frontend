@@ -306,7 +306,7 @@ export function ErrataMetricsStrip({ primary }: { primary?: NvdCve }) {
       {showV4 && <CvssScoreCard label="CVSS v4.0 Base Score" score={v4} />}
       <Box borderWidth="1px" borderColor={border} borderRadius="md" bg={bg} px={3} py={2.5} minW="120px">
         <Text fontSize="2xs" textTransform="uppercase" color={muted} mb={1}>
-          Severity
+          CVSS band
         </Text>
         <Text fontSize="lg" fontWeight="800" color={severityColor(sev)}>
           {sev === "NONE" ? "—" : sev}
