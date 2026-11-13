@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import {
   cvssScoreToSeverity,
+  cvssV3Label,
   exploitMaturityRank,
   parseCvss3Metrics,
   parseScore,
@@ -302,7 +303,7 @@ export function ErrataMetricsStrip({ primary }: { primary?: NvdCve }) {
 
   return (
     <HStack spacing={3} align="stretch" flexWrap="wrap">
-      <CvssScoreCard label="CVSS v3.1 Base Score" score={v3} />
+      <CvssScoreCard label={`${cvssV3Label(primary?.cvss_v3_vector)} Base Score`} score={v3} />
       {showV4 && <CvssScoreCard label="CVSS v4.0 Base Score" score={v4} />}
       <Box borderWidth="1px" borderColor={border} borderRadius="md" bg={bg} px={3} py={2.5} minW="120px">
         <Text fontSize="2xs" textTransform="uppercase" color={muted} mb={1}>
@@ -313,7 +314,7 @@ export function ErrataMetricsStrip({ primary }: { primary?: NvdCve }) {
         </Text>
         {v3 !== null && (
           <Text fontSize="2xs" color="gray.500">
-            (CVSS v3.1)
+            ({cvssV3Label(primary?.cvss_v3_vector)})
           </Text>
         )}
       </Box>

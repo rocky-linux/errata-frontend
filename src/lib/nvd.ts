@@ -50,6 +50,12 @@ export function parseScore(raw?: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** "CVSS v3.0" or "CVSS v3.1" from a vector prefix; "CVSS v3" when there is none. */
+export function cvssV3Label(vector?: string | null): string {
+  const match = vector?.match(/^CVSS:3\.([01])\//);
+  return match ? `CVSS v3.${match[1]}` : "CVSS v3";
+}
+
 /** Decode CVSS v3.x vector metrics into display labels. */
 export function parseCvss3Metrics(
   vector?: string | null
@@ -146,7 +152,7 @@ export function pickPrimaryNvd(items: NvdCve[]): NvdCve | undefined {
   })[0];
 }
 
-/** CVSS temporal / Atomic maturity ladder (1–5 filled dots). */
+/** CVSS temporal exploit-maturity ladder (1–4 filled dots). */
 export const EXPLOIT_MATURITY_LEVELS = [
   "Unproven",
   "Proof-of-Concept",

@@ -882,11 +882,6 @@ export function CveList() {
               </MenuItem>
             </MenuList>
           </Menu>
-          <Link href={exportUrl("/cves.csv", exportParams)}>CSV</Link>
-          <Link href={exportUrl("/cves.json", exportParams)}>JSON</Link>
-          <Link href={exportUrl("/cves.rss", exportParams)} isExternal>
-            RSS
-          </Link>
         </HStack>
       </HStack>
       <Collapse in={advancedOpen}>
@@ -914,9 +909,11 @@ export function CveList() {
         </HStack>
       </Collapse>
       <HStack mt={3} spacing={3} color={muted} fontSize="sm" flexWrap="wrap">
-        <Text color={countColor} fontWeight="700">
-          {total.toLocaleString()} {grouped ? (total === 1 ? "CVE" : "CVEs") : total === 1 ? "record" : "records"} found
-        </Text>
+        {!loading && !error && (
+          <Text color={countColor} fontWeight="700">
+            {total.toLocaleString()} {grouped ? (total === 1 ? "CVE" : "CVEs") : total === 1 ? "record" : "records"} found
+          </Text>
+        )}
         <Text>
           {grouped ? "Grouped by CVE (one row per vulnerability)" : "One row per CVE, package, and release"}
         </Text>
