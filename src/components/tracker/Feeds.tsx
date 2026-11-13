@@ -14,11 +14,12 @@ export function FeedsPage() {
     <Box p={4} maxW="800px">
       <Heading size="md">Data feeds and API</Heading>
       <Text mt={1} fontSize="sm">
-        Read-only feeds for the same Rocky Linux errata shown on this site. CSV and JSON exports
-        carry each record's status label (Patch available, shown on this site as Fix listed in
-        advisory; In research; Not shipped; Not affected) and its code in statusCode (fixed,
-        under_investigation, not_shipped, not_affected). Not shipped is not the same as Not
-        affected.
+        Read-only feeds for the same Rocky Linux errata shown on this site. The CVE CSV and JSON
+        exports carry each record's status label (Patch available, shown on this site as Fix
+        listed in advisory; In research; Not shipped; Not affected) and its code in statusCode
+        (fixed, under_investigation, not_shipped, not_affected). With view=cves, status
+        summarizes the CVE's records, and statusCode is empty when they differ. Not shipped is
+        not the same as Not affected.
       </Text>
       <Heading size="sm" mt={4} id="mcp">
         MCP

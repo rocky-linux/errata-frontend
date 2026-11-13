@@ -153,9 +153,10 @@ export const Overview = () => {
     const timer = window.setTimeout(() => {
       const search = next.toString();
       if (search === writtenSearch.current) return;
-      writtenSearch.current = search;
       try {
         setParams(next, { replace: true });
+        // Only after a successful write, so a throttled write is retried, not skipped.
+        writtenSearch.current = search;
       } catch {
         // Throttled by the browser; the next filter change writes the URL again.
       }
