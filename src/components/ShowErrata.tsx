@@ -142,6 +142,12 @@ function referenceLabel(ticket: string, sourceLink: string, sourceBy: string): s
   return [sourceBy, ticket].filter(Boolean).join(" ");
 }
 
+/** An absent flag is unknown, not false: older Apollo responses omit restartSuggested. */
+function yesNo(value?: boolean): string {
+  if (value === undefined || value === null) return "Not recorded";
+  return value ? "Yes" : "No";
+}
+
 /** Badge colour for the advisory's own severity rating. */
 function advisorySeverityScheme(severity?: V2Advisory["severity"]): string {
   switch (severity) {
@@ -823,10 +829,10 @@ export const ShowErrata = () => {
                       )}
                       <VStack align="stretch" spacing={2} mt={4} fontSize="sm">
                         <Text>
-                          Reboot suggested: {errata.rebootSuggested ? "yes" : "no"}
+                          Reboot suggested: {yesNo(errata.rebootSuggested)}
                         </Text>
                         <Text>
-                          Restart suggested: {errata.restartSuggested ? "yes" : "no"}
+                          Restart suggested: {yesNo(errata.restartSuggested)}
                         </Text>
                         {cveNames.length > 0 && (
                           <Text>
