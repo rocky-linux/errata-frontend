@@ -194,8 +194,9 @@ export function CveDetailPage() {
   const { cveId = "" } = useParams();
   const [params] = useSearchParams();
   const [detail, setDetail] = useState<CveDetail>();
-  const [advisories, setAdvisories] = useState<Record<string, V2Advisory>>({});
-  const [error, setError] = useState<"not_found" | "failed" | null>(null);
+  // null marks an advisory whose V2 lookup failed, so its row stops showing "Looking up".
+  const [advisories, setAdvisories] = useState<Record<string, V2Advisory | null>>({});
+  const [error, setError] = useState<"not_found" | "invalid" | "failed" | null>(null);
   const [showDescription, setShowDescription] = useState(false);
   const cardBg = useColorModeValue("white", "#121820");
   const insetBg = useColorModeValue("gray.50", "#0d131a");
@@ -221,7 +222,9 @@ export function CveDetailPage() {
       })
       .catch((reason: unknown) => {
         if (cancelled) return;
-        setError(reason instanceof Response && reason.status === 404 ? "not_found" : "failed");
+        const status = reason instanceof Response ? reason.status : 0;
+        // Apollo answers 400 for a malformed ID and 404 for one it doesn't track.
+        setError(status === 404 ? "not_found" : status === 400 ? "invalid" : "failed");
       });
     return () => {
       cancelled = true;
@@ -247,9 +250,9 @@ export function CveDetailPage() {
       })
     ).then((pairs) => {
       if (cancelled) return;
-      const next: Record<string, V2Advisory> = {};
+      const next: Record<string, V2Advisory | null> = {};
       for (const [name, advisory] of pairs) {
-        if (advisory) next[name] = advisory;
+        next[name] = advisory ?? null;
       }
       setAdvisories(next);
     });
@@ -267,7 +270,9 @@ export function CveDetailPage() {
         <Text mt={4}>
           {error === "not_found"
             ? "This CVE is not in the Rocky tracker."
-            : "The CVE could not be loaded. Try again later."}
+            : error === "invalid"
+              ? `"${cveId}" is not a valid CVE ID.`
+              : "The CVE could not be loaded. Try again later."}
         </Text>
       </Box>
     );
@@ -284,7 +289,12 @@ export function CveDetailPage() {
   const score = parseScore(detail.cvssV3Score);
   const vector = cvssVector(detail.cvssV3Vector);
   const cwe = storedText(detail.cwe);
-  const exploitMaturity = storedText(detail.exploitMaturity);
+  // Apollo derives "Unproven" from any vector without an E: metric, including a placeholder
+  // such as "UNKNOWN"; a maturity derived from no real vector is not data.
+  const exploitMaturity =
+    detail.sources?.exploitMaturity === "vector" && !vector
+      ? null
+      : storedText(detail.exploitMaturity);
   const epss = storedText(detail.epssScore) === null ? null : Number(detail.epssScore);
   const cvss = band(detail.cvssV3Score);
   const patched = detail.contexts.filter((item) => item.status === "Patch available");
@@ -462,7 +472,7 @@ export function CveDetailPage() {
               <RemediationRow
                 key={`${item.product}-${item.component}-${item.version}`}
                 item={item}
-                advisory={item.advisory ? advisories[item.advisory] : undefined}
+                advisory={item.advisory ? (advisories[item.advisory] ?? undefined) : undefined}
                 loaded={item.advisory ? item.advisory in advisories : true}
                 muted={muted}
                 linkBlue={linkBlue}
@@ -760,8 +770,13 @@ function RemediationRow({
         <Td borderColor={borderColor} color={patched ? COLOR_RESF_GREEN : muted}>
           {fixStatusLabel(item.status)}
           {item.status === "Not affected" && item.justification ? (
-            <Text fontSize="xs" color={muted} title={`Justification: ${item.justification}`}>
-              {justificationText(item.justification)}
+            <Text
+              fontSize="xs"
+              color={muted}
+              title={`Justification: ${justificationText(item.justification)}`}
+            >
+              {/* The reason names the evidence (repository metadata or a Red Hat VEX statement). */}
+              {item.reason || justificationText(item.justification)}
             </Text>
           ) : null}
         </Td>
@@ -830,6 +845,9 @@ function PackageDetails({
   borderColor: string;
 }) {
   if (item.advisory && !loaded) return <Text fontSize="sm">Looking up the advisory…</Text>;
+  if (item.advisory && !advisory) {
+    return <Text fontSize="sm">The package list for {item.advisory} could not be loaded.</Text>;
+  }
   const sourceRpms = assigned.groups.map((group) => group.source);
   const relatedUnmatched = assigned.unmatched.filter((rpm) => sourceRpms.some((source) => sameEvr(source, rpm)));
   const chipBorder = borderColor;
