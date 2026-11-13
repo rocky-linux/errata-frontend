@@ -3,6 +3,9 @@ import { useEffect } from "react";
 import { Link as RouterLink } from "react-router-dom";
 
 export function FeedsPage() {
+  // The SPA's nginx proxies /mcp to Apollo, so the endpoint is this site's own origin.
+  const mcpUrl = `${window.location.origin}/mcp`;
+
   useEffect(() => {
     document.title = "Data feeds";
   }, []);
@@ -11,21 +14,19 @@ export function FeedsPage() {
     <Box p={4} maxW="800px">
       <Heading size="md">Data feeds and API</Heading>
       <Text mt={1} fontSize="sm">
-        Read-only feeds for the same Rocky Linux errata shown on this site. The site label Fix
-        listed in advisory means a Rocky advisory names a fixed source build. It is not an
-        independently verified RPM. Exports still use the stored status Patch available, along with
-        In research, Not shipped, and not_affected. Not affected is a separate stored status. Not
-        shipped is not that status.
+        Read-only feeds for the same Rocky Linux errata shown on this site. Exports use the stored
+        status values: Patch available (shown on this site as Fix listed in advisory), In research,
+        Not shipped, and Not affected. Not shipped is not the same as Not affected.
       </Text>
       <Heading size="sm" mt={4} id="mcp">
         MCP
       </Heading>
       <Text mt={2} fontSize="sm">
-        Anonymous, read-only Streamable HTTP. 100 requests per minute per IP. There is no
-        subscription or notification tool.
+        Anonymous, read-only Streamable HTTP, limited to 100 requests per minute per client
+        address. There is no subscription or notification tool.
       </Text>
       <Text mt={2} fontFamily="mono" fontSize="sm">
-        https://errata.research.atomicorp.com/mcp
+        {mcpUrl}
       </Text>
       <Text mt={3} fontSize="sm" fontWeight="600">
         Cursor
@@ -34,7 +35,7 @@ export function FeedsPage() {
   "mcpServers": {
     "rocky-errata": {
       "type": "streamableHttp",
-      "url": "https://errata.research.atomicorp.com/mcp"
+      "url": "${mcpUrl}"
     }
   }
 }`}</Code>
@@ -42,7 +43,7 @@ export function FeedsPage() {
         Claude Code
       </Text>
       <Code display="block" whiteSpace="pre" p={3} mt={1} fontSize="xs">
-        claude mcp add --transport http rocky-errata https://errata.research.atomicorp.com/mcp
+        claude mcp add --transport http rocky-errata {mcpUrl}
       </Code>
       <Text mt={3} fontSize="sm" fontWeight="600">
         Claude Desktop
@@ -51,7 +52,7 @@ export function FeedsPage() {
   "mcpServers": {
     "rocky-errata": {
       "command": "npx",
-      "args": ["mcp-remote", "https://errata.research.atomicorp.com/mcp"]
+      "args": ["mcp-remote", "${mcpUrl}"]
     }
   }
 }`}</Code>
@@ -120,7 +121,7 @@ export function FeedsPage() {
         <ListItem>No email subscription or notification product list.</ListItem>
         <ListItem>No sitemap yet.</ListItem>
         <ListItem>No claim of a full OSV corpus on this host.</ListItem>
-        <ListItem>Update frequency is the research catalog schedule, not a per-row SLA.</ListItem>
+        <ListItem>Feeds change when the errata catalog is updated. There is no per-row update SLA.</ListItem>
       </UnorderedList>
     </Box>
   );
