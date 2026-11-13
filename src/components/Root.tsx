@@ -37,6 +37,17 @@ function AdvisoriesRedirect() {
 type ThemePref = "light" | "dark" | "system";
 const THEME_KEY = "rocky-theme";
 
+/**
+ * The header is a dark gradient in both color modes, so the buttons use fixed white-alpha
+ * fills. Chakra's "solid" variant follows the color mode and put white text on a near-white
+ * fill in light mode.
+ */
+function themeButtonStyle(selected: boolean) {
+  return selected
+    ? { bg: "whiteAlpha.400", _hover: { bg: "whiteAlpha.500" }, _active: { bg: "whiteAlpha.500" } }
+    : { bg: "transparent", _hover: { bg: "whiteAlpha.200" }, _active: { bg: "whiteAlpha.300" } };
+}
+
 function ThemeSwitch() {
   const { setColorMode } = useColorMode();
   const [pref, setPref] = useState<ThemePref>(() => {
@@ -70,7 +81,8 @@ function ThemeSwitch() {
         aria-pressed={pref === "light"}
         size="sm"
         color="white"
-        variant={pref === "light" ? "solid" : "ghost"}
+        variant="ghost"
+        {...themeButtonStyle(pref === "light")}
         icon={<SunIcon />}
         onClick={() => choose("light")}
       />
@@ -80,7 +92,8 @@ function ThemeSwitch() {
         aria-pressed={pref === "dark"}
         size="sm"
         color="white"
-        variant={pref === "dark" ? "solid" : "ghost"}
+        variant="ghost"
+        {...themeButtonStyle(pref === "dark")}
         icon={<MoonIcon />}
         onClick={() => choose("dark")}
       />
@@ -90,7 +103,8 @@ function ThemeSwitch() {
         aria-pressed={pref === "system"}
         size="sm"
         color="white"
-        variant={pref === "system" ? "solid" : "ghost"}
+        variant="ghost"
+        {...themeButtonStyle(pref === "system")}
         onClick={() => choose("system")}
       >
         System
