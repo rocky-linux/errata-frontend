@@ -225,8 +225,13 @@ export function CveDetailPage() {
   useEffect(() => {
     if (!detail) return;
     let cancelled = false;
+    // Only the advisory named on each remediation row is read (for its RPM list); the rest
+    // are links only. Some CVEs list dozens of related advisories.
+    const names = [
+      ...new Set(detail.contexts.map((item) => item.advisory).filter(Boolean)),
+    ] as string[];
     Promise.all(
-      advisoryNames(detail).map(async (name) => {
+      names.map(async (name) => {
         try {
           const result = await getAdvisory(name);
           return [name, result.advisory] as const;
@@ -593,11 +598,10 @@ function referenceItems(detail: CveDetail): Array<{ href: string; label: string;
   items.push({ href: nvd, label: `NVD — ${detail.cve}`, external: true });
   seen.add(nvd);
   // An API document, not an SPA route: it must not go through the router.
-  items.push({
-    href: `/api/v3/csaf/vex/${encodeURIComponent(detail.cve)}`,
-    label: "CSAF VEX",
-    external: true,
-  });
+  const vex =
+    safeHttpUrl(detail.vexUrl, window.location.origin) ??
+    `/api/v3/csaf/vex/${encodeURIComponent(detail.cve)}`;
+  items.push({ href: vex, label: "CSAF VEX", external: true });
   for (const url of detail.references) {
     const href = safeHttpUrl(url);
     if (!href || seen.has(href)) continue;
