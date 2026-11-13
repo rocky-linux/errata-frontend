@@ -1,5 +1,11 @@
 replicaCount: 3
 
+# Pinned so a pod that starts on a node without the image (a restart, a reschedule or a
+# scale-up) can't pull a newer :latest than the rest. Prod's API has no tracker, NVD or
+# CSAF endpoints yet, and the UI uses them from #5 on. Move this tag on purpose to deploy.
+image:
+  tag: sha-0ec5d75
+
 autoscaling:
   enabled: true
   minReplicas: 3
