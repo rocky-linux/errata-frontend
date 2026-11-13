@@ -26,7 +26,8 @@ export function useTrackerParams() {
     params,
     update,
     page: Math.max(1, Number(params.get("page") || "1") || 1),
-    limit: Number(params.get("limit") || "20") || 20,
+    // Apollo answers 400 for a limit above 100.
+    limit: Math.min(100, Math.max(1, Number(params.get("limit") || "20") || 20)),
   };
 }
 

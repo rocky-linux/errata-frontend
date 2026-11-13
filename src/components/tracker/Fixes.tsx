@@ -34,6 +34,7 @@ import {
   type FixDetail,
   type FixRow,
 } from "../../api/tracker";
+import { copyText } from "../../lib/copyText";
 import { safeHttpUrl } from "../../lib/safeHttpUrl";
 import { COLOR_RESF_GREEN } from "../../styles";
 import { severityColor, TrackerFilters } from "./Filters";
@@ -48,6 +49,7 @@ export function FixesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [detail, setDetail] = useState<FixDetail>();
+  const [detailFailed, setDetailFailed] = useState(false);
   const tableBg = useColorModeValue("white", "gray.800");
   const advisory = params.get("advisory");
 
@@ -89,12 +91,14 @@ export function FixesPage() {
       return;
     }
     let cancelled = false;
+    setDetail(undefined);
+    setDetailFailed(false);
     getTrackerFix(advisory)
       .then((result) => {
         if (!cancelled) setDetail(result);
       })
       .catch(() => {
-        if (!cancelled) setDetail(undefined);
+        if (!cancelled) setDetailFailed(true);
       });
     return () => {
       cancelled = true;
@@ -106,7 +110,7 @@ export function FixesPage() {
   async function copyLink() {
     const url = new URL(window.location.href);
     if (advisory) url.searchParams.set("advisory", advisory);
-    await navigator.clipboard.writeText(url.toString());
+    await copyText(url.toString());
   }
 
   return (
@@ -179,13 +183,15 @@ export function FixesPage() {
           <DrawerCloseButton />
           <DrawerHeader>{detail?.advisory || advisory}</DrawerHeader>
           <DrawerBody>
-            {!detail ? (
+            {detailFailed ? (
+              <Text>This advisory could not be loaded.</Text>
+            ) : !detail ? (
               <Spinner color={COLOR_RESF_GREEN} />
             ) : (
               <Stack spacing={4}>
                 <Text>{detail.title}</Text>
                 <HStack>
-                  <Button size="sm" onClick={() => void copyLink()}>
+                  <Button size="sm" onClick={() => void copyLink().catch(() => undefined)}>
                     Copy page link
                   </Button>
                   <Button

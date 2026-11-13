@@ -36,6 +36,7 @@ import { getAdvisory } from "../../api/client";
 import { getTrackerCve, type CveContext, type CveDetail } from "../../api/tracker";
 import type { V2Advisory, V2RPMs } from "../../api/types";
 import { cvssScoreToSeverity, parseCvss3Metrics, parseScore } from "../../lib/nvd";
+import { copyText } from "../../lib/copyText";
 import { safeHttpUrl } from "../../lib/safeHttpUrl";
 import { COLOR_RESF_GREEN } from "../../styles";
 import { MetricInfoHint } from "../MetricInfoHint";
@@ -166,21 +167,6 @@ function formatDay(value: string | null | undefined): string {
   return `${MONTHS[Number(match[2]) - 1]} ${Number(match[3])}, ${match[1]}`;
 }
 
-function copyText(value: string): Promise<void> {
-  return navigator.clipboard.writeText(value).catch(() => {
-    const area = document.createElement("textarea");
-    area.value = value;
-    area.setAttribute("readonly", "");
-    area.style.position = "fixed";
-    area.style.left = "-9999px";
-    document.body.appendChild(area);
-    area.select();
-    const ok = document.execCommand("copy");
-    area.remove();
-    if (!ok) throw new Error("copy failed");
-  });
-}
-
 function referenceLabel(url: string): string {
   try {
     const parsed = new URL(url);
@@ -203,7 +189,7 @@ export function CveDetailPage() {
   const [params] = useSearchParams();
   const [detail, setDetail] = useState<CveDetail>();
   const [advisories, setAdvisories] = useState<Record<string, V2Advisory>>({});
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<"not_found" | "failed" | null>(null);
   const [showDescription, setShowDescription] = useState(false);
   const cardBg = useColorModeValue("white", "#121820");
   const insetBg = useColorModeValue("gray.50", "#0d131a");
@@ -219,15 +205,17 @@ export function CveDetailPage() {
       if (value) query.set(key, value);
     }
     let cancelled = false;
-    setError(false);
+    setError(null);
+    setDetail(undefined);
     setAdvisories({});
     setShowDescription(false);
     getTrackerCve(cveId, query)
       .then((result) => {
         if (!cancelled) setDetail(result);
       })
-      .catch(() => {
-        if (!cancelled) setError(true);
+      .catch((reason: unknown) => {
+        if (cancelled) return;
+        setError(reason instanceof Response && reason.status === 404 ? "not_found" : "failed");
       });
     return () => {
       cancelled = true;
@@ -265,7 +253,11 @@ export function CveDetailPage() {
         <Link as={RouterLink} to="/cves" color={linkBlue}>
           CVEs
         </Link>
-        <Text mt={4}>This CVE is not in the Rocky tracker.</Text>
+        <Text mt={4}>
+          {error === "not_found"
+            ? "This CVE is not in the Rocky tracker."
+            : "The CVE could not be loaded. Try again later."}
+        </Text>
       </Box>
     );
   }
@@ -956,10 +948,12 @@ function CopyTextButton({ value, disabled }: { value: string; disabled?: boolean
       leftIcon={<CopyIcon />}
       isDisabled={disabled}
       onClick={() => {
-        copyText(value).then(() => {
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1200);
-        });
+        copyText(value)
+          .then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1200);
+          })
+          .catch(() => undefined);
       }}
     >
       {copied ? "Copied" : "Copy NEVRA"}
@@ -976,10 +970,12 @@ function CopyIconButton({ value, label }: { value: string; label: string }) {
       size="xs"
       variant="ghost"
       onClick={() => {
-        copyText(value).then(() => {
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1200);
-        });
+        copyText(value)
+          .then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1200);
+          })
+          .catch(() => undefined);
       }}
     />
   );
