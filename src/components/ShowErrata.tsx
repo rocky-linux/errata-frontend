@@ -144,10 +144,13 @@ function referenceLabel(ticket: string, sourceLink: string, sourceBy: string): s
   return [sourceBy, ticket].filter(Boolean).join(" ");
 }
 
-/** An absent flag is unknown, not false: older Apollo responses omit restartSuggested. */
-function yesNo(value?: boolean): string {
-  if (value === undefined || value === null) return "Not recorded";
-  return value ? "Yes" : "No";
+/**
+ * Only true is a recorded signal. distro-tools' V2 API sends rebootSuggested: false for every
+ * advisory (kernel ones included) and omits restartSuggested, and Apollo defaults both to
+ * false, so false means "not indicated", not "no reboot needed".
+ */
+function suggested(value?: boolean): string {
+  return value ? "Yes" : "Not indicated by the advisory";
 }
 
 /** Badge colour for the advisory's own severity rating. */
@@ -831,10 +834,10 @@ export const ShowErrata = () => {
                       )}
                       <VStack align="stretch" spacing={2} mt={4} fontSize="sm">
                         <Text>
-                          Reboot suggested: {yesNo(errata.rebootSuggested)}
+                          Reboot suggested: {suggested(errata.rebootSuggested)}
                         </Text>
                         <Text>
-                          Restart suggested: {yesNo(errata.restartSuggested)}
+                          Restart suggested: {suggested(errata.restartSuggested)}
                         </Text>
                         {cveNames.length > 0 && (
                           <Text>
